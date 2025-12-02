@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:flutter/services.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 void main() {
   runApp(const MyApp());
@@ -31,6 +32,7 @@ class _HomePageState extends State<HomePage> {
   final pages = [
     MetronomePage(),
     MenuPage(),
+    TunerPage(),
   ];
 
   @override
@@ -47,6 +49,10 @@ class _HomePageState extends State<HomePage> {
           BottomNavigationBarItem(
             icon: Icon(Icons.menu_book),
             label: 'Меню',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.tune),
+            label: 'Тюнер',
           ),
         ],
         onTap: (i) => setState(() => _currentIndex = i),
@@ -194,4 +200,89 @@ class MenuPage extends StatelessWidget {
   }
 }
 
-//виджет
+//виджет тюнера
+class TunerPage extends StatefulWidget {
+  const TunerPage({super.key});
+
+  @override
+  State<TunerPage> createState() => _TunerPageState();
+}
+
+class _TunerPageState extends State<TunerPage> {
+  static const platform = MethodChannel('com.example.kursproj/pitch');
+  double _frequency = 0.0;
+  bool _isListening = false;
+  String _status = "Нажмите «Старт», чтобы начать";
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text("Тюнер")),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              _frequency > 0 ? '${_frequency.toStringAsFixed(1)} Hz' : '–',
+              style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 20),
+            Text(_status),
+            const SizedBox(height: 40),
+            ElevatedButton(
+              onPressed: _isListening ? _stopListening : _startListening,
+              child: Text(_isListening ? "Стоп" : "Старт"),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _startListening() async {
+    final status = await Permission.microphone.request();
+    if (!status.isGranted) {
+      if (mounted) {
+        setState(() {
+          _status = "Разрешение на микрофон отклонено";
+        });
+      }
+      return;
+    }
+
+    try {
+      await platform.invokeMethod('startPitchDetection');
+      if (mounted) {
+        platform.setMethodCallHandler((call) async {
+          if (call.method == 'onFrequencyUpdate') {
+            final freq = call.arguments['frequency'] as double?;
+            if (freq != null && mounted) {
+              setState(() {
+                _frequency = freq;
+                _status = "Слушаю...";
+              });
+            }
+          }
+        });
+        setState(() {
+          _isListening = true;
+        });
+      }
+    } on PlatformException catch (e) {
+      if (mounted) {
+        setState(() {
+          _status = "Ошибка: ${e.message}";
+        });
+      }
+    }
+  }
+
+  Future<void> _stopListening() async {
+    platform.invokeMethod('stopPitchDetection');
+    setState(() {
+      _isListening = false;
+      _frequency = 0.0;
+      _status = "Остановлено";
+    });
+  }
+}
