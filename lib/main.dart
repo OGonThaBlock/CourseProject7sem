@@ -1,8 +1,35 @@
 import 'dart:async';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
+
+const List<String> noteNames = [
+  'C', 'C#', 'D', 'D#', 'E', 'F',
+  'F#', 'G', 'G#', 'A', 'A#', 'B'
+];
+
+class NoteResult {
+  final String note;
+  final int octave;
+  final double cents;
+
+  NoteResult(this.note, this.octave, this.cents);
+}
+
+NoteResult frequencyToNote(double frequency) {
+  final double noteNumber =
+      69 + 12 * (log(frequency / 440.0) / ln2);
+
+  final int nearestNote = noteNumber.round();
+  final double cents = (noteNumber - nearestNote) * 100;
+
+  final String note = noteNames[nearestNote % 12];
+  final int octave = (nearestNote ~/ 12) - 1;
+
+  return NoteResult(note, octave, cents);
+}
 
 void main() {
   runApp(const MyApp());
@@ -200,7 +227,9 @@ class MenuPage extends StatelessWidget {
   }
 }
 
+//////////////////////////////////////////////////////////////////
 //виджет тюнера
+//////////////////////////////////////////////////////////////////
 class TunerPage extends StatefulWidget {
   const TunerPage({super.key});
 
@@ -213,22 +242,43 @@ class _TunerPageState extends State<TunerPage> {
   double _frequency = 0.0;
   bool _isListening = false;
   String _status = "Нажмите «Старт», чтобы начать";
+  String _note = '–';
+  int _octave = 0;
+  double _cents = 0.0;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text("Тюнер")),
-      body: Center(
+      body: Padding(
+        padding: const EdgeInsets.all(20),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(
-              _frequency > 0 ? '${_frequency.toStringAsFixed(1)} Hz' : '–',
-              style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
+              '$_note$_octave',
+              style: const TextStyle(fontSize: 48, fontWeight: FontWeight.bold),
             ),
-            const SizedBox(height: 20),
-            Text(_status),
+
+            const SizedBox(height: 10),
+
+            Text(
+              _frequency > 0
+                  ? '${_frequency.toStringAsFixed(1)} Hz'
+                  : '–',
+              style: const TextStyle(fontSize: 18),
+            ),
+
             const SizedBox(height: 40),
+
+            _TuningScale(cents: _cents),
+
+            const SizedBox(height: 40),
+
+            Text(_status),
+
+            const SizedBox(height: 20),
+
             ElevatedButton(
               onPressed: _isListening ? _stopListening : _startListening,
               child: Text(_isListening ? "Стоп" : "Старт"),
@@ -236,6 +286,7 @@ class _TunerPageState extends State<TunerPage> {
           ],
         ),
       ),
+
     );
   }
 
@@ -257,8 +308,13 @@ class _TunerPageState extends State<TunerPage> {
           if (call.method == 'onFrequencyUpdate') {
             final freq = call.arguments['frequency'] as double?;
             if (freq != null && mounted) {
+              final noteResult = frequencyToNote(freq);
+
               setState(() {
                 _frequency = freq;
+                _note = noteResult.note;
+                _octave = noteResult.octave;
+                _cents = noteResult.cents.clamp(-50.0, 50.0);
                 _status = "Слушаю...";
               });
             }
@@ -286,3 +342,65 @@ class _TunerPageState extends State<TunerPage> {
     });
   }
 }
+
+class _TuningScale extends StatelessWidget {
+  final double cents;
+
+  const _TuningScale({required this.cents});
+
+  @override
+  Widget build(BuildContext context) {
+    Color color;
+    final abs = cents.abs();
+
+    if (abs < 5) {
+      color = Colors.green;
+    } else if (abs < 15) {
+      color = Colors.orange;
+    } else {
+      color = Colors.red;
+    }
+
+    return Column(
+      children: [
+        Container(
+          height: 12,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(6),
+            color: Colors.grey.shade300,
+          ),
+          child: Stack(
+            children: [
+              Align(
+                alignment: Alignment.center,
+                child: Container(
+                  width: 2,
+                  color: Colors.black,
+                ),
+              ),
+              Align(
+                alignment: Alignment((cents / 50).clamp(-1.0, 1.0), 0),
+                child: Container(
+                  width: 6,
+                  height: 12,
+                  decoration: BoxDecoration(
+                    color: color,
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 8),
+
+        Text(
+          '${cents.toStringAsFixed(1)} cents',
+          style: TextStyle(color: color),
+        ),
+      ],
+    );
+  }
+}
+
