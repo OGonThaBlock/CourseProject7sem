@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 
 const List<String> noteNames = [
   'C', 'C#', 'D', 'D#', 'E', 'F',
@@ -198,10 +199,57 @@ class _MetronomePageState extends State<MetronomePage> {
   }
 }
 
+const String chordsHtml = '''
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script async type="text/javascript"
+    src="https://www.scales-chords.com/api/scales-chords-api.js"></script>
+</head>
+<body style="background-color:white; text-align:center;">
+
+  <h3>C major</h3>
+  <ins class="scales_chords_api"
+       chord="C"
+       instrument="guitar"
+       output="image"
+       width="150px"
+       height="200px"
+       nolink="true"></ins>
+
+  <h3>Am</h3>
+  <ins class="scales_chords_api"
+       chord="Am"
+       instrument="guitar"
+       output="image"
+       width="150px"
+       height="200px"
+       nolink="true"></ins>
+
+</body>
+</html>
+''';
 //////////////////////////////////////////////////////////////////
 // СТРАНИЦА МЕНЮ (2-я вкладка)
 //////////////////////////////////////////////////////////////////
 
+class MenuPage extends StatelessWidget {
+  const MenuPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text("Аккорды")),
+      body: WebViewWidget(
+        controller: WebViewController()
+          ..setJavaScriptMode(JavaScriptMode.unrestricted)
+          ..loadHtmlString(chordsHtml),
+      ),
+    );
+  }
+}
+/*
 class MenuPage extends StatelessWidget {
   const MenuPage({super.key});
 
@@ -226,7 +274,7 @@ class MenuPage extends StatelessWidget {
     );
   }
 }
-
+*/
 //////////////////////////////////////////////////////////////////
 //виджет тюнера
 //////////////////////////////////////////////////////////////////
