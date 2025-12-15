@@ -233,7 +233,7 @@ const String chordsHtml = '''
 //////////////////////////////////////////////////////////////////
 // СТРАНИЦА МЕНЮ (2-я вкладка)
 //////////////////////////////////////////////////////////////////
-
+/*
 class MenuPage extends StatelessWidget {
   const MenuPage({super.key});
 
@@ -249,7 +249,7 @@ class MenuPage extends StatelessWidget {
     );
   }
 }
-/*
+*/
 class MenuPage extends StatelessWidget {
   const MenuPage({super.key});
 
@@ -262,19 +262,133 @@ class MenuPage extends StatelessWidget {
           ListTile(
             leading: const Icon(Icons.music_note),
             title: const Text("Аккорды"),
-            onTap: () {}, // заглушка
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const ChordsPage(),
+                ),
+              );
+            },
           ),
           ListTile(
             leading: const Icon(Icons.school),
             title: const Text("Теория"),
-            onTap: () {}, // заглушка
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const TheoryPage(),
+                ),
+              );
+            },
           ),
         ],
       ),
     );
   }
 }
-*/
+
+class ChordsPage extends StatelessWidget {
+  const ChordsPage({super.key});
+
+  final List<String> chords = const [
+    'C',
+    'Cm',
+    'D',
+    'Dm',
+    'E',
+    'Em',
+    'F',
+    'Fm',
+    'G',
+    'Gm',
+    'A',
+    'Am',
+    'B',
+    'Bm',
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text("Аккорды")),
+      body: ListView.builder(
+        itemCount: chords.length,
+        itemBuilder: (context, index) {
+          final chord = chords[index];
+          return ListTile(
+            leading: const Icon(Icons.queue_music),
+            title: Text(chord),
+            trailing: const Icon(Icons.arrow_forward_ios),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => ChordViewPage(chord: chord),
+                ),
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+}
+
+class ChordViewPage extends StatelessWidget {
+  final String chord;
+  const ChordViewPage({super.key, required this.chord});
+
+  @override
+  Widget build(BuildContext context) {
+    final html = '''
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script async src="https://www.scales-chords.com/api/scales-chords-api.js"></script>
+</head>
+<body style="text-align:center;">
+  <h2>$chord</h2>
+  <ins class="scales_chords_api"
+       chord="$chord"
+       instrument="guitar"
+       output="image"
+       width="300px"
+       height="240px"
+       nolink="true"></ins>
+</body>
+</html>
+''';
+
+    return Scaffold(
+      appBar: AppBar(title: Text('Аккорд $chord')),
+      body: WebViewWidget(
+        controller: WebViewController()
+          ..setJavaScriptMode(JavaScriptMode.unrestricted)
+          ..loadHtmlString(html),
+      ),
+    );
+  }
+}
+
+class TheoryPage extends StatelessWidget {
+  const TheoryPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text("Теория")),
+      body: const Center(
+        child: Text(
+          "здесь теория",
+          style: TextStyle(fontSize: 24),
+        ),
+      ),
+    );
+  }
+}
 //////////////////////////////////////////////////////////////////
 //виджет тюнера
 //////////////////////////////////////////////////////////////////
