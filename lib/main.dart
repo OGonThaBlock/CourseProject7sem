@@ -477,7 +477,7 @@ class _TunerPageState extends State<TunerPage> {
                 _note = noteResult.note;
                 _octave = noteResult.octave;
                 _cents = noteResult.cents.clamp(-50.0, 50.0);
-                _status = "Слушаю...";
+                _status = "";
               });
             }
           }
@@ -500,7 +500,7 @@ class _TunerPageState extends State<TunerPage> {
     setState(() {
       _isListening = false;
       _frequency = 0.0;
-      _status = "Остановлено";
+      _status = "";
     });
   }
 }
