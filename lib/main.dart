@@ -43,6 +43,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       home: const HomePage(),
+      debugShowCheckedModeBanner: false,
     );
   }
 }
@@ -380,12 +381,60 @@ class TheoryPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text("Теория")),
-      body: const Center(
-        child: Text(
-          "здесь теория",
-          style: TextStyle(fontSize: 24),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              "Основы музыкальной теории",
+              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            _buildSection("Ноты", """
+В западной музыке используется 12 нот в октаве:
+C, C#, D, D#, E, F, F#, G, G#, A, A#, B  
+(или по-русски: До, До♯, Ре, Ре♯, Ми, Фа, Фа♯, Соль, Соль♯, Ля, Ля♯, Си).
+
+Эти 12 нот повторяются в каждой октаве — выше или ниже по высоте.
+"""),
+            _buildSection("Октава", """
+Октава — это интервал между двумя нотами с одинаковым названием, где частота верхней в 2 раза больше нижней.  
+Например: A4 = 440 Гц, A5 = 880 Гц.
+"""),
+            _buildSection("Строй и частота", """
+Международный стандарт — A4 (Ля первой октавы) = 440 Гц.  
+Остальные ноты рассчитываются по формуле:
+f = 440 × 2^(n/12),  
+где n — количество полутонов от A4.
+"""),
+            _buildSection("Полутон и тон", """
+Минимальный шаг в музыке — полутон (например, от C к C#).  
+Два полутона = тон (например, от C к D).
+"""),
+            _buildSection("Диез (♯) и бемоль (♭)", """
+- Диез (♯) — повышает ноту на полутон (C → C♯).  
+- Бемоль (♭) — понижает на полутон (D → D♭).  
+C♯ и D♭ — это одна и та же высота (энгармонизм).
+"""),
+          ],
         ),
       ),
+    );
+  }
+
+  Widget _buildSection(String title, String content) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 4),
+        Text(content, style: const TextStyle(fontSize: 16)),
+        const SizedBox(height: 16),
+      ],
     );
   }
 }
