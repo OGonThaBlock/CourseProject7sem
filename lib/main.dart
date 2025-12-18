@@ -33,24 +33,77 @@ NoteResult frequencyToNote(double frequency) {
   return NoteResult(note, octave, cents);
 }
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
   runApp(const MyApp());
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  ThemeMode _themeMode = ThemeMode.light;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTheme();
+  }
+
+  Future<void> _loadTheme() async {
+    final prefs = await SharedPreferences.getInstance();
+    final isDark = prefs.getBool('is_dark_theme') ?? false;
+    if (mounted) {
+      setState(() {
+        _themeMode = isDark ? ThemeMode.dark : ThemeMode.light;
+      });
+    }
+  }
+
+  Future<void> _toggleTheme(bool isDark) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('is_dark_theme', isDark);
+    if (mounted) {
+      setState(() {
+        _themeMode = isDark ? ThemeMode.dark : ThemeMode.light;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      home: const HomePage(),
+      theme: ThemeData(
+        useMaterial3: true,
+        brightness: Brightness.light,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: Colors.green,
+          brightness: Brightness.light,
+        ),
+      ),
+      darkTheme: ThemeData(
+        useMaterial3: true,
+        brightness: Brightness.dark,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: Colors.green,
+          brightness: Brightness.dark,
+        ),
+      ),
+      themeMode: _themeMode,
+      home: HomePage(toggleTheme: _toggleTheme),
       debugShowCheckedModeBanner: false,
     );
   }
 }
 
 class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+  final Future<void> Function(bool) toggleTheme;
+
+  const HomePage({super.key, required this.toggleTheme});
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -59,11 +112,11 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   int _currentIndex = 0;
 
-  final pages = [
-      MetronomePage(),
+  List<Widget> get pages => [
+    MetronomePage(),
     MenuPage(),
     TunerPage(),
-    const SettingsPage(),
+    SettingsPage(toggleTheme: widget.toggleTheme),
   ];
 
   @override
@@ -72,24 +125,15 @@ class _HomePageState extends State<HomePage> {
       body: pages[_currentIndex],
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
+        unselectedItemColor: Colors.grey[600],
+        selectedItemColor: Colors.green,
+        backgroundColor: Theme.of(context).bottomNavigationBarTheme.backgroundColor,
         type: BottomNavigationBarType.fixed,
         items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.timer),
-            label: 'Метроном',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.menu_book),
-            label: 'Меню',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.tune),
-            label: 'Тюнер',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.settings),
-            label: 'Настройки',
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.timer), label: 'Метроном'),
+          BottomNavigationBarItem(icon: Icon(Icons.menu_book), label: 'Меню'),
+          BottomNavigationBarItem(icon: Icon(Icons.tune), label: 'Тюнер'),
+          BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'Настройки'),
         ],
         onTap: (i) => setState(() => _currentIndex = i),
       ),
@@ -111,7 +155,7 @@ class _MetronomePageState extends State<MetronomePage> {
 
   Timer? timer;
   int bpm = 120;
-  int beatCount = 4; // размер 4/4
+  int beatCount = 4;
   int currentBeat = 1;
 
   @override
@@ -477,7 +521,7 @@ class _TunerPageState extends State<TunerPage> {
   @override
   void initState() {
     super.initState();
-    AnalyticsService.incrementTuner(); // ← учёт посещения
+    AnalyticsService.incrementTuner();
   }
 
   @override
@@ -653,7 +697,6 @@ class AnalyticsService {
     };
   }
 
-  // Удобные методы
   static Future<void> incrementMetronome() => increment(_keyMetronome);
   static Future<void> incrementTuner() => increment(_keyTuner);
   static Future<void> incrementMenu() => increment(_keyMenu);
@@ -664,27 +707,39 @@ class AnalyticsService {
 
 
 class SettingsPage extends StatefulWidget {
-  const SettingsPage({super.key});
+  final Future<void> Function(bool) toggleTheme;
+
+  const SettingsPage({super.key, required this.toggleTheme});
 
   @override
   State<SettingsPage> createState() => _SettingsPageState();
 }
 
 class _SettingsPageState extends State<SettingsPage> {
-  Map<String, int> _visits = {};
+  bool _isDarkTheme = false;
 
   @override
   void initState() {
     super.initState();
-    _loadVisits();
-    AnalyticsService.incrementSettings(); // учёт посещения
+    _loadCurrentTheme();
+    AnalyticsService.incrementSettings();
   }
 
-  Future<void> _loadVisits() async {
-    final visits = await AnalyticsService.getVisits();
+  Future<void> _loadCurrentTheme() async {
+    final prefs = await SharedPreferences.getInstance();
+    final isDark = prefs.getBool('is_dark_theme') ?? false;
     if (mounted) {
       setState(() {
-        _visits = visits;
+        _isDarkTheme = isDark;
+      });
+    }
+  }
+
+  Future<void> _onToggle(bool value) async {
+    await widget.toggleTheme(value); // вызываем callback из MyApp
+    if (mounted) {
+      setState(() {
+        _isDarkTheme = value;
       });
     }
   }
@@ -699,24 +754,48 @@ class _SettingsPageState extends State<SettingsPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
+              "Тема приложения",
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text("Тёмная тема"),
+                Switch(
+                  value: _isDarkTheme,
+                  onChanged: _onToggle,
+                  activeColor: Theme.of(context).colorScheme.primary,
+                ),
+              ],
+            ),
+            const Divider(height: 32),
+            const Text(
               "Статистика использования",
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
-            const SizedBox(height: 20),
-            if (_visits.isNotEmpty)
-              ..._visits.entries.map((entry) {
-                return ListTile(
-                  title: Text(entry.key),
-                  trailing: Text('${entry.value} раз(а)'),
-                );
-              }).toList()
-            else
-              const Text("Загрузка..."),
-            const SizedBox(height: 30),
+            const SizedBox(height: 12),
+            FutureBuilder<Map<String, int>>(
+              future: AnalyticsService.getVisits(),
+              builder: (context, snapshot) {
+                if (snapshot.hasData) {
+                  return Column(
+                    children: [
+                      for (final entry in snapshot.data!.entries)
+                        ListTile(
+                          title: Text(entry.key),
+                          trailing: Text('${entry.value} раз(а)'),
+                        ),
+                    ],
+                  );
+                } else {
+                  return const Text("Загрузка...");
+                }
+              },
+            ),
           ],
         ),
       ),
     );
   }
 }
-
