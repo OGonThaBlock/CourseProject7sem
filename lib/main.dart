@@ -5,6 +5,7 @@ import 'package:just_audio/just_audio.dart';
 import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 const List<String> noteNames = [
   'C', 'C#', 'D', 'D#', 'E', 'F',
@@ -59,9 +60,10 @@ class _HomePageState extends State<HomePage> {
   int _currentIndex = 0;
 
   final pages = [
-    MetronomePage(),
+      MetronomePage(),
     MenuPage(),
     TunerPage(),
+    const SettingsPage(),
   ];
 
   @override
@@ -70,6 +72,7 @@ class _HomePageState extends State<HomePage> {
       body: pages[_currentIndex],
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
+        type: BottomNavigationBarType.fixed,
         items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.timer),
@@ -82,6 +85,10 @@ class _HomePageState extends State<HomePage> {
           BottomNavigationBarItem(
             icon: Icon(Icons.tune),
             label: 'Тюнер',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.settings),
+            label: 'Настройки',
           ),
         ],
         onTap: (i) => setState(() => _currentIndex = i),
@@ -110,6 +117,7 @@ class _MetronomePageState extends State<MetronomePage> {
   @override
   void initState() {
     super.initState();
+    AnalyticsService.incrementMetronome();
     _loadSounds();
   }
 
@@ -251,8 +259,19 @@ class MenuPage extends StatelessWidget {
   }
 }
 */
-class MenuPage extends StatelessWidget {
+class MenuPage extends StatefulWidget {
   const MenuPage({super.key});
+
+  @override
+  State<MenuPage> createState() => _MenuPageState();
+}
+
+class _MenuPageState extends State<MenuPage> {
+  @override
+  void initState() {
+    super.initState();
+    AnalyticsService.incrementMenu();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -264,11 +283,10 @@ class MenuPage extends StatelessWidget {
             leading: const Icon(Icons.music_note),
             title: const Text("Аккорды"),
             onTap: () {
+              AnalyticsService.incrementChords();
               Navigator.push(
                 context,
-                MaterialPageRoute(
-                  builder: (_) => const ChordsPage(),
-                ),
+                MaterialPageRoute(builder: (_) => const ChordsPage()),
               );
             },
           ),
@@ -276,11 +294,10 @@ class MenuPage extends StatelessWidget {
             leading: const Icon(Icons.school),
             title: const Text("Теория"),
             onTap: () {
+              AnalyticsService.incrementTheory();
               Navigator.push(
                 context,
-                MaterialPageRoute(
-                  builder: (_) => const TheoryPage(),
-                ),
+                MaterialPageRoute(builder: (_) => const TheoryPage()),
               );
             },
           ),
@@ -458,6 +475,12 @@ class _TunerPageState extends State<TunerPage> {
   double _cents = 0.0;
 
   @override
+  void initState() {
+    super.initState();
+    AnalyticsService.incrementTuner(); // ← учёт посещения
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text("Тюнер")),
@@ -470,26 +493,16 @@ class _TunerPageState extends State<TunerPage> {
               '$_note$_octave',
               style: const TextStyle(fontSize: 48, fontWeight: FontWeight.bold),
             ),
-
             const SizedBox(height: 10),
-
             Text(
-              _frequency > 0
-                  ? '${_frequency.toStringAsFixed(1)} Hz'
-                  : '–',
+              _frequency > 0 ? '${_frequency.toStringAsFixed(1)} Hz' : '–',
               style: const TextStyle(fontSize: 18),
             ),
-
             const SizedBox(height: 40),
-
             _TuningScale(cents: _cents),
-
             const SizedBox(height: 40),
-
             Text(_status),
-
             const SizedBox(height: 20),
-
             ElevatedButton(
               onPressed: _isListening ? _stopListening : _startListening,
               child: Text(_isListening ? "Стоп" : "Старт"),
@@ -497,7 +510,6 @@ class _TunerPageState extends State<TunerPage> {
           ],
         ),
       ),
-
     );
   }
 
@@ -611,6 +623,99 @@ class _TuningScale extends StatelessWidget {
           style: TextStyle(color: color),
         ),
       ],
+    );
+  }
+}
+
+class AnalyticsService {
+  static const String _keyMetronome = 'visits_metronome';
+  static const String _keyTuner = 'visits_tuner';
+  static const String _keyMenu = 'visits_menu';
+  static const String _keyChords = 'visits_chords';
+  static const String _keyTheory = 'visits_theory';
+  static const String _keySettings = 'visits_settings';
+
+  static Future<void> increment(String key) async {
+    final prefs = await SharedPreferences.getInstance();
+    final current = prefs.getInt(key) ?? 0;
+    await prefs.setInt(key, current + 1);
+  }
+
+  static Future<Map<String, int>> getVisits() async {
+    final prefs = await SharedPreferences.getInstance();
+    return {
+      'Метроном': prefs.getInt(_keyMetronome) ?? 0,
+      'Тюнер': prefs.getInt(_keyTuner) ?? 0,
+      'Меню': prefs.getInt(_keyMenu) ?? 0,
+      'Аккорды': prefs.getInt(_keyChords) ?? 0,
+      'Теория': prefs.getInt(_keyTheory) ?? 0,
+      'Настройки': prefs.getInt(_keySettings) ?? 0,
+    };
+  }
+
+  // Удобные методы
+  static Future<void> incrementMetronome() => increment(_keyMetronome);
+  static Future<void> incrementTuner() => increment(_keyTuner);
+  static Future<void> incrementMenu() => increment(_keyMenu);
+  static Future<void> incrementChords() => increment(_keyChords);
+  static Future<void> incrementTheory() => increment(_keyTheory);
+  static Future<void> incrementSettings() => increment(_keySettings);
+}
+
+
+class SettingsPage extends StatefulWidget {
+  const SettingsPage({super.key});
+
+  @override
+  State<SettingsPage> createState() => _SettingsPageState();
+}
+
+class _SettingsPageState extends State<SettingsPage> {
+  Map<String, int> _visits = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _loadVisits();
+    AnalyticsService.incrementSettings(); // учёт посещения
+  }
+
+  Future<void> _loadVisits() async {
+    final visits = await AnalyticsService.getVisits();
+    if (mounted) {
+      setState(() {
+        _visits = visits;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text("Настройки")),
+      body: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              "Статистика использования",
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 20),
+            if (_visits.isNotEmpty)
+              ..._visits.entries.map((entry) {
+                return ListTile(
+                  title: Text(entry.key),
+                  trailing: Text('${entry.value} раз(а)'),
+                );
+              }).toList()
+            else
+              const Text("Загрузка..."),
+            const SizedBox(height: 30),
+          ],
+        ),
+      ),
     );
   }
 }
