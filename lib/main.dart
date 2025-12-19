@@ -113,8 +113,8 @@ class _HomePageState extends State<HomePage> {
   int _currentIndex = 0;
 
   List<Widget> get pages => [
-    MetronomePage(),
     MenuPage(),
+    MetronomePage(),
     TunerPage(),
     SettingsPage(toggleTheme: widget.toggleTheme),
   ];
@@ -130,8 +130,8 @@ class _HomePageState extends State<HomePage> {
         backgroundColor: Theme.of(context).bottomNavigationBarTheme.backgroundColor,
         type: BottomNavigationBarType.fixed,
         items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.timer), label: 'Метроном'),
           BottomNavigationBarItem(icon: Icon(Icons.menu_book), label: 'Меню'),
+          BottomNavigationBarItem(icon: Icon(Icons.timer), label: 'Метроном'),
           BottomNavigationBarItem(icon: Icon(Icons.tune), label: 'Тюнер'),
           BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'Настройки'),
         ],
