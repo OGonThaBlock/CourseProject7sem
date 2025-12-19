@@ -793,9 +793,48 @@ class _SettingsPageState extends State<SettingsPage> {
                 }
               },
             ),
+            ListTile(
+              leading: const Icon(Icons.book),
+              title: const Text("Посмотреть документацию"),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => DocumentationPage()),
+                );
+              },
+            ),
           ],
         ),
       ),
+    );
+  }
+}
+
+class DocumentationPage extends StatefulWidget {
+  @override
+  State<DocumentationPage> createState() => _DocumentationPageState();
+}
+
+class _DocumentationPageState extends State<DocumentationPage> {
+  late final WebViewController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setBackgroundColor(const Color(0x00000000))
+      ..loadRequest(Uri.parse('https://ogonthablock.github.io/CourseProject7sem/#/'));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Документация'),
+        backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
+      ),
+      body: WebViewWidget(controller: _controller),
     );
   }
 }
