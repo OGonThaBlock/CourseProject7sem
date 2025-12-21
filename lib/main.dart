@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'services/theory_api_service.dart';
 
 const List<String> noteNames = [
   'C', 'C#', 'D', 'D#', 'E', 'F',
@@ -435,49 +436,82 @@ class ChordViewPage extends StatelessWidget {
   }
 }
 
-class TheoryPage extends StatelessWidget {
+class TheoryPage extends StatefulWidget {
   const TheoryPage({super.key});
 
   @override
+  State<TheoryPage> createState() => _TheoryPageState();
+}
+
+class _TheoryPageState extends State<TheoryPage> {
+  TheoryData? _theoryData;
+  bool _isLoading = true;
+  bool _useLocal = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTheory();
+  }
+
+  Future<void> _loadTheory() async {
+    setState(() {
+      _isLoading = true;
+      _useLocal = false;
+    });
+
+    // Пытаемся загрузить с API
+    final remoteData = await TheoryApiService.fetchTheoryFromApi();
+
+    if (remoteData != null) {
+      setState(() {
+        _theoryData = remoteData;
+        _isLoading = false;
+      });
+    } else {
+      // Если не удалось — используем локальные данные
+      setState(() {
+        _theoryData = TheoryApiService.getLocalFallback();
+        _useLocal = true;
+        _isLoading = false;
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Scaffold(
+        appBar: AppBar(title: Text("Теория")),
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    final data = _theoryData!;
+
     return Scaffold(
-      appBar: AppBar(title: const Text("Теория")),
+      appBar: AppBar(
+        title: const Text("Теория"),
+        actions: [
+          if (_useLocal)
+            const Tooltip(
+              message: "Используются локальные данные (нет соединения с сервером)",
+              child: Icon(Icons.cloud_off, color: Colors.orange),
+            ),
+        ],
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              "Основы музыкальной теории",
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            Text(
+              data.title,
+              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
-            _buildSection("Ноты", """
-В западной музыке используется 12 нот в октаве:
-C, C#, D, D#, E, F, F#, G, G#, A, A#, B  
-(или по-русски: До, До♯, Ре, Ре♯, Ми, Фа, Фа♯, Соль, Соль♯, Ля, Ля♯, Си).
-
-Эти 12 нот повторяются в каждой октаве — выше или ниже по высоте.
-"""),
-            _buildSection("Октава", """
-Октава — это интервал между двумя нотами с одинаковым названием, где частота верхней в 2 раза больше нижней.  
-Например: A4 = 440 Гц, A5 = 880 Гц.
-"""),
-            _buildSection("Строй и частота", """
-Международный стандарт — A4 (Ля первой октавы) = 440 Гц.  
-Остальные ноты рассчитываются по формуле:
-f = 440 × 2^(n/12),  
-где n — количество полутонов от A4.
-"""),
-            _buildSection("Полутон и тон", """
-Минимальный шаг в музыке — полутон (например, от C к C#).  
-Два полутона = тон (например, от C к D).
-"""),
-            _buildSection("Диез (♯) и бемоль (♭)", """
-- Диез (♯) — повышает ноту на полутон (C → C♯).  
-- Бемоль (♭) — понижает на полутон (D → D♭).  
-C♯ и D♭ — это одна и та же высота (энгармонизм).
-"""),
+            for (var section in data.sections)
+              _buildSection(section.heading, section.content),
           ],
         ),
       ),
