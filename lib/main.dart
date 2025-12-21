@@ -460,7 +460,6 @@ class _TheoryPageState extends State<TheoryPage> {
       _useLocal = false;
     });
 
-    // Пытаемся загрузить с API
     final remoteData = await TheoryApiService.fetchTheoryFromApi();
 
     if (remoteData != null) {
@@ -469,7 +468,6 @@ class _TheoryPageState extends State<TheoryPage> {
         _isLoading = false;
       });
     } else {
-      // Если не удалось — используем локальные данные
       setState(() {
         _theoryData = TheoryApiService.getLocalFallback();
         _useLocal = true;

@@ -29,8 +29,6 @@ class TheoryApiService {
   static const String _baseUrl = 'http://192.168.0.102:8000';
   static const String _theoryEndpoint = '$_baseUrl/theory';
 
-  /// Загружает теорию с сервера.
-  /// Возвращает `null`, если произошла ошибка (нет сети, сервер недоступен и т.п.).
   static Future<TheoryData?> fetchTheoryFromApi() async {
     try {
       final response = await http.get(Uri.parse(_theoryEndpoint));
@@ -39,13 +37,11 @@ class TheoryApiService {
         return TheoryData.fromJson(json);
       }
     } catch (e) {
-      // Логирование ошибки можно добавить, если нужно
       // print('Error fetching theory: $e');
     }
     return null;
   }
 
-  /// Возвращает локальные (резервные) данные теории.
   static TheoryData getLocalFallback() {
     return TheoryData(
       title: "Основы музыкальной теории",
