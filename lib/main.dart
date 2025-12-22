@@ -860,7 +860,6 @@ class DocumentationPage extends StatelessWidget {
   });
 
 
-  // Базовый путь к документации в репозитории
   static const String _docsBaseUrl =
       'https://raw.githubusercontent.com/OGonThaBlock/CourseProject7sem/master/docs';
 
@@ -891,17 +890,14 @@ class DocumentationPage extends StatelessWidget {
             data: markdown,
             selectable: true,
 
-            /// обработка изображений
             imageBuilder: (uri, title, alt) {
               final imageUrl = _resolveUrl(uri.toString());
               return Image.network(imageUrl);
             },
 
-            /// обработка ссылок
             onTapLink: (text, href, title) {
               if (href == null) return;
 
-              // 👉 главная страница документации
               if (href == '/' || href == '/README.md') {
                 Navigator.push(
                   context,
@@ -941,17 +937,14 @@ class DocumentationPage extends StatelessWidget {
     );
   }
 
-  /// Преобразует относительные пути Markdown в raw-ссылки GitHub
   String _resolveUrl(String url) {
-    // Уже абсолютная ссылка
+
     if (url.startsWith('http')) return url;
 
-    // Абсолютный путь от корня docs
     if (url.startsWith('/')) {
       return '$_docsBaseUrl$url';
     }
 
-    // Относительный путь
     return '$_docsBaseUrl/$url';
   }
 }
