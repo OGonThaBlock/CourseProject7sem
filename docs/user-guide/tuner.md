@@ -22,7 +22,7 @@
 
 Отклонение **менее 5 центов** считается **идеальным строем**.
 
-![Тюнер с нотой A4](../assets/tuner.jpg)
+![Тюнер с нотой A4](https://raw.githubusercontent.com/OGonThaBlock/CourseProject7sem/master/docs/assets/tuner.jpg)
 
 ## Точность измерений
 

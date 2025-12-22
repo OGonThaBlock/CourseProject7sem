@@ -18,7 +18,7 @@
 
 > Без разрешения на микрофон **тюнер работать не будет**.
 
-![Экран разрешений](../assets/permission.jpg)
+![Экран разрешений](https://raw.githubusercontent.com/OGonThaBlock/CourseProject7sem/master/docs/assets/permission.jpg)
 
 ---
 

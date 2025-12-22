@@ -19,7 +19,7 @@
 
 >  Акцент на **первой доле** помогает чётко ощущать начало такта.
 
-![Метроном в работе](../assets/metronome.jpg)
+![Метроном в работе](https://raw.githubusercontent.com/OGonThaBlock/CourseProject7sem/master/docs/assets/metronome.jpg)
 
 ##  Параметры метронома
 

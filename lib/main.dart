@@ -7,6 +7,9 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'services/theory_api_service.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:http/http.dart' as http;
+import 'package:url_launcher/url_launcher.dart';
 
 const List<String> noteNames = [
   'C', 'C#', 'D', 'D#', 'E', 'F',
@@ -831,7 +834,11 @@ class _SettingsPageState extends State<SettingsPage> {
               onTap: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => DocumentationPage()),
+                  MaterialPageRoute(builder: (_) => DocumentationPage(
+                    title: 'Документация',
+                    markdownUrl:
+                    'https://raw.githubusercontent.com/OGonThaBlock/CourseProject7sem/master/docs/README.md',
+                  )),
                 );
               },
             ),
@@ -842,32 +849,109 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 }
 
-class DocumentationPage extends StatefulWidget {
-  @override
-  State<DocumentationPage> createState() => _DocumentationPageState();
-}
+class DocumentationPage extends StatelessWidget {
+  final String title;
+  final String markdownUrl;
 
-class _DocumentationPageState extends State<DocumentationPage> {
-  late final WebViewController _controller;
+  const DocumentationPage({
+    super.key,
+    required this.title,
+    required this.markdownUrl,
+  });
 
-  @override
-  void initState() {
-    super.initState();
-    _controller = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setBackgroundColor(const Color(0x00000000))
-      ..loadRequest(Uri.parse('https://ogonthablock.github.io/CourseProject7sem/#/'));
-  }
+
+  // Базовый путь к документации в репозитории
+  static const String _docsBaseUrl =
+      'https://raw.githubusercontent.com/OGonThaBlock/CourseProject7sem/master/docs';
 
   @override
   Widget build(BuildContext context) {
+    final uri = Uri.parse(markdownUrl);
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Документация'),
-        backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
+        title: Text(title),
       ),
-      body: WebViewWidget(controller: _controller),
-    );
+      body: FutureBuilder<http.Response>(
+        future: http.get(uri),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
 
+          if (snapshot.hasError) {
+            return Center(
+              child: Text('Ошибка загрузки: ${snapshot.error}'),
+            );
+          }
+
+          final markdown = snapshot.data?.body ?? '';
+
+          return Markdown(
+            data: markdown,
+            selectable: true,
+
+            /// обработка изображений
+            imageBuilder: (uri, title, alt) {
+              final imageUrl = _resolveUrl(uri.toString());
+              return Image.network(imageUrl);
+            },
+
+            /// обработка ссылок
+            onTapLink: (text, href, title) {
+              if (href == null) return;
+
+              // 👉 главная страница документации
+              if (href == '/' || href == '/README.md') {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const DocumentationPage(
+                      title: 'Документация',
+                      markdownUrl:
+                      'https://raw.githubusercontent.com/OGonThaBlock/CourseProject7sem/master/docs/README.md',
+                    ),
+                  ),
+                );
+                return;
+              }
+
+              final resolvedUrl = _resolveUrl(href);
+
+              if (resolvedUrl.endsWith('.md')) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => DocumentationPage(
+                      title: text,
+                      markdownUrl: resolvedUrl,
+                    ),
+                  ),
+                );
+              } else {
+                launchUrl(
+                  Uri.parse(resolvedUrl),
+                  mode: LaunchMode.externalApplication,
+                );
+              }
+            },
+          );
+        },
+      ),
+    );
+  }
+
+  /// Преобразует относительные пути Markdown в raw-ссылки GitHub
+  String _resolveUrl(String url) {
+    // Уже абсолютная ссылка
+    if (url.startsWith('http')) return url;
+
+    // Абсолютный путь от корня docs
+    if (url.startsWith('/')) {
+      return '$_docsBaseUrl$url';
+    }
+
+    // Относительный путь
+    return '$_docsBaseUrl/$url';
   }
 }
