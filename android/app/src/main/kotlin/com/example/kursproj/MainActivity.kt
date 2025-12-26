@@ -48,7 +48,7 @@ class MainActivity : FlutterActivity() {
         if (isRecording) return
         isRecording = true
         audioThread = Thread {
-            val sampleRate = 8000
+            val sampleRate = 16000
             val bufferSize = AudioRecord.getMinBufferSize(
                 sampleRate,
                 AudioFormat.CHANNEL_IN_MONO,
@@ -64,13 +64,13 @@ class MainActivity : FlutterActivity() {
 
             try {
                 audioRecord.startRecording()
-                val buffer = ShortArray(8192)
+                val buffer = ShortArray(16384)
 
                 while (isRecording) {
                     val readSize = audioRecord.read(buffer, 0, buffer.size)
                     if (readSize > 0) {
                         val frequency = detectPitch(buffer, sampleRate)
-                        if (frequency in 80.0..1000.0) {
+                        if (frequency in 70.0..900.0) {
                             runOnUiThread {
                                 methodChannel?.invokeMethod(
                                     "onFrequencyUpdate",
@@ -79,7 +79,7 @@ class MainActivity : FlutterActivity() {
                             }
                         }
                     }
-                    Thread.sleep(100)
+                    Thread.sleep(50)
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
