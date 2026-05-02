@@ -439,99 +439,140 @@ class ChordViewPage extends StatelessWidget {
   }
 }
 
-class TheoryPage extends StatefulWidget {
+class TheoryPage extends StatelessWidget {
   const TheoryPage({super.key});
 
   @override
-  State<TheoryPage> createState() => _TheoryPageState();
+  Widget build(BuildContext context) {
+    final sections = TheoryApiService.getTheorySections();
+
+    return Scaffold(
+      appBar: AppBar(title: const Text("Теория")),
+      body: ListView.builder(
+        itemCount: sections.length,
+        itemBuilder: (context, index) {
+          final section = sections[index];
+
+          return ListTile(
+            title: Text(section.title),
+            trailing: const Icon(Icons.arrow_forward_ios),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => TheoryDetailPage(data: section),
+                ),
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
 }
 
-class _TheoryPageState extends State<TheoryPage> {
-  TheoryData? _theoryData;
-  bool _isLoading = true;
-  bool _useLocal = false;
+class TheoryDetailPage extends StatelessWidget {
+  final TheoryData data;
 
-  @override
-  void initState() {
-    super.initState();
-    _loadTheory();
-  }
-
-  Future<void> _loadTheory() async {
-    setState(() {
-      _isLoading = true;
-      _useLocal = false;
-    });
-
-    final remoteData = await TheoryApiService.fetchTheoryFromApi();
-
-    if (remoteData != null) {
-      setState(() {
-        _theoryData = remoteData;
-        _isLoading = false;
-      });
-    } else {
-      setState(() {
-        _theoryData = TheoryApiService.getLocalFallback();
-        _useLocal = true;
-        _isLoading = false;
-      });
-    }
-  }
+  const TheoryDetailPage({super.key, required this.data});
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return Scaffold(
-        appBar: AppBar(title: Text("Теория")),
-        body: Center(child: CircularProgressIndicator()),
-      );
-    }
-
-    final data = _theoryData!;
-
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("Теория"),
-        actions: [
-          if (_useLocal)
-            const Tooltip(
-              message: "Используются локальные данные (нет соединения с сервером)",
-              child: Icon(Icons.cloud_off, color: Colors.orange),
-            ),
-        ],
-      ),
+      appBar: AppBar(title: Text(data.title)),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              data.title,
-              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
             for (var section in data.sections)
-              _buildSection(section.heading, section.content),
+              _buildSection(section, context),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildSection(String title, String content) {
+  Widget _buildSection(TheorySection section, BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          title,
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          section.heading,
+          style: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
         ),
-        const SizedBox(height: 4),
-        Text(content, style: const TextStyle(fontSize: 16)),
-        const SizedBox(height: 16),
+        const SizedBox(height: 6),
+        _buildContent(section.content, context),
+        const SizedBox(height: 20),
       ],
     );
+  }
+
+  /// 🔥 Парсер ссылок [текст](id)
+  Widget _buildContent(String content, BuildContext context) {
+    final regex = RegExp(r'\[(.*?)\]\((.*?)\)');
+    final matches = regex.allMatches(content);
+
+    if (matches.isEmpty) {
+      return Text(content, style: const TextStyle(fontSize: 16));
+    }
+
+    List<InlineSpan> spans = [];
+    int lastIndex = 0;
+
+    for (final match in matches) {
+      // обычный текст до ссылки
+      if (match.start > lastIndex) {
+        spans.add(TextSpan(
+          text: content.substring(lastIndex, match.start),
+          style: const TextStyle(color: Colors.black, fontSize: 16),
+        ));
+      }
+
+      final linkText = match.group(1)!;
+      final linkId = match.group(2)!;
+
+      spans.add(
+        WidgetSpan(
+          child: GestureDetector(
+            onTap: () {
+              final target = TheoryApiService.getById(linkId);
+              if (target != null) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => TheoryDetailPage(data: target),
+                  ),
+                );
+              }
+            },
+            child: Text(
+              linkText,
+              style: const TextStyle(
+                color: Colors.blue,
+                decoration: TextDecoration.underline,
+                fontSize: 16,
+              ),
+            ),
+          ),
+        ),
+      );
+
+      lastIndex = match.end;
+    }
+
+    // остаток текста
+    if (lastIndex < content.length) {
+      spans.add(TextSpan(
+        text: content.substring(lastIndex),
+        style: const TextStyle(color: Colors.black, fontSize: 16),
+      ));
+    }
+
+    return RichText(text: TextSpan(children: spans));
   }
 }
 //////////////////////////////////////////////////////////////////
