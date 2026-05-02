@@ -349,10 +349,110 @@ class _MenuPageState extends State<MenuPage> {
               );
             },
           ),
+          ListTile(
+            leading: const Icon(Icons.quiz),
+            title: const Text("Тесты"),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const TestsPage()),
+              );
+            },
+          ),
         ],
       ),
     );
   }
+}
+
+class TestsPage extends StatefulWidget {
+  const TestsPage({super.key});
+
+  @override
+  State<TestsPage> createState() => _TestsPageState();
+}
+
+class _TestsPageState extends State<TestsPage> {
+  List<_TestItem> items = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final sections = TheoryApiService.getTheorySections();
+    final results = await ProgressService.getAllResults();
+
+    List<_TestItem> list = [];
+
+    for (var s in sections) {
+      if (s.quiz != null) {
+        final score = results[s.id] ?? 0.0;
+
+        list.add(_TestItem(
+          data: s,
+          score: score,
+        ));
+      }
+    }
+
+    list.sort((a, b) => a.score.compareTo(b.score));
+
+    setState(() {
+      items = list;
+    });
+  }
+
+  Color _getColor(double score) {
+    if (score == 0) return Colors.grey;
+    if (score < 0.5) return Colors.red;
+    if (score < 0.8) return Colors.orange;
+    return Colors.green;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text("Тесты")),
+      body: ListView.builder(
+        itemCount: items.length,
+        itemBuilder: (context, index) {
+          final item = items[index];
+
+          return Card(
+            color: _getColor(item.score).withOpacity(0.2),
+            child: ListTile(
+              title: Text(item.data.title),
+              subtitle: Text(
+                "Прогресс: ${(item.score * 100).toStringAsFixed(0)}%",
+              ),
+              trailing: const Icon(Icons.play_arrow),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => QuizPage(
+                      questions: item.data.quiz!,
+                      theoryId: item.data.id,
+                    ),
+                  ),
+                ).then((_) => _load());
+              },
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _TestItem {
+  final TheoryData data;
+  final double score;
+
+  _TestItem({required this.data, required this.score});
 }
 
 class ChordsPage extends StatelessWidget {
@@ -487,6 +587,24 @@ class TheoryDetailPage extends StatelessWidget {
           children: [
             for (var section in data.sections)
               _buildSection(section, context),
+
+            if (data.quiz != null) ...[
+              const SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => QuizPage(
+                        questions: data.quiz!,
+                        theoryId: data.id,
+                      ),
+                    ),
+                  );
+                },
+                child: const Text("Пройти тест"),
+              ),
+            ]
           ],
         ),
       ),
@@ -511,7 +629,6 @@ class TheoryDetailPage extends StatelessWidget {
     );
   }
 
-  /// 🔥 Парсер ссылок [текст](id)
   Widget _buildContent(String content, BuildContext context) {
     final regex = RegExp(r'\[(.*?)\]\((.*?)\)');
     final matches = regex.allMatches(content);
@@ -524,11 +641,13 @@ class TheoryDetailPage extends StatelessWidget {
     int lastIndex = 0;
 
     for (final match in matches) {
-      // обычный текст до ссылки
       if (match.start > lastIndex) {
         spans.add(TextSpan(
           text: content.substring(lastIndex, match.start),
-          style: const TextStyle(color: Colors.black, fontSize: 16),
+          style: const TextStyle(
+            color: Colors.black,
+            fontSize: 16,
+          ),
         ));
       }
 
@@ -564,15 +683,129 @@ class TheoryDetailPage extends StatelessWidget {
       lastIndex = match.end;
     }
 
-    // остаток текста
     if (lastIndex < content.length) {
       spans.add(TextSpan(
         text: content.substring(lastIndex),
-        style: const TextStyle(color: Colors.black, fontSize: 16),
+        style: const TextStyle(
+          color: Colors.black,
+          fontSize: 16,
+        ),
       ));
     }
 
-    return RichText(text: TextSpan(children: spans));
+    return RichText(
+      text: TextSpan(children: spans),
+    );
+  }
+}
+
+//////////////////////////////////////////////////////////////////
+//тест
+class QuizPage extends StatefulWidget {
+  final List<QuizQuestion> questions;
+  final String theoryId;
+
+  const QuizPage({
+    super.key,
+    required this.questions,
+    required this.theoryId,
+  });
+
+  @override
+  State<QuizPage> createState() => _QuizPageState();
+}
+
+class _QuizPageState extends State<QuizPage> {
+  int current = 0;
+  int score = 0;
+  int? selected;
+
+  void next() {
+    if (selected == widget.questions[current].correctIndex) {
+      score++;
+    }
+
+    if (current < widget.questions.length - 1) {
+      setState(() {
+        current++;
+        selected = null;
+      });
+    } else {
+      _showResult();
+    }
+  }
+
+  void _showResult() async {
+    await ProgressService.saveResult(
+      widget.theoryId,
+      score,
+      widget.questions.length,
+    );
+
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text("Результат"),
+        content: Text(
+          "Правильных ответов: $score из ${widget.questions.length}",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context); // закрыть диалог
+              Navigator.pop(context); // назад
+            },
+            child: const Text("ОК"),
+          )
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final q = widget.questions[current];
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text("Вопрос ${current + 1}/${widget.questions.length}"),
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          children: [
+            Text(
+              q.question,
+              style: const TextStyle(fontSize: 20),
+            ),
+            const SizedBox(height: 20),
+
+            for (int i = 0; i < q.answers.length; i++)
+              RadioListTile<int>(
+                value: i,
+                groupValue: selected,
+                title: Text(q.answers[i]),
+                onChanged: (v) {
+                  setState(() {
+                    selected = v;
+                  });
+                },
+              ),
+
+            const Spacer(),
+
+            ElevatedButton(
+              onPressed: selected == null ? null : next,
+              child: Text(
+                current == widget.questions.length - 1
+                    ? "Завершить"
+                    : "Далее",
+              ),
+            )
+          ],
+        ),
+      ),
+    );
   }
 }
 //////////////////////////////////////////////////////////////////
