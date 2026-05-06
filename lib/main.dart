@@ -539,33 +539,117 @@ class ChordViewPage extends StatelessWidget {
   }
 }
 
-class TheoryPage extends StatelessWidget {
+class TheoryPage extends StatefulWidget {
   const TheoryPage({super.key});
 
   @override
+  State<TheoryPage> createState() => _TheoryPageState();
+}
+
+class _TheoryPageState extends State<TheoryPage> {
+  List<TheoryData> sections = [];
+  Map<String, double> results = {};
+  int passedCount = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final data = TheoryApiService.getTheorySections();
+    final res = await ProgressService.getAllResults();
+    final passed = await ProgressService.getPassedCount(data);
+
+    setState(() {
+      sections = data;
+      results = res;
+      passedCount = passed;
+    });
+  }
+
+  bool _isUnlocked(int index) {
+    if (index == 0) return true;
+
+    final prev = sections[index - 1];
+    final prevScore = results[prev.id] ?? 0.0;
+
+    if (prev.quiz == null) return true;
+    return prevScore >= ProgressService.passThreshold;
+  }
+
+  Color _getColor(double score) {
+    if (score == 0) return Colors.grey;
+    if (score < 0.7) return Colors.red;
+    return Colors.green;
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final sections = TheoryApiService.getTheorySections();
+    final total = sections.length;
+    final progress = total == 0 ? 0.0 : passedCount / total;
 
     return Scaffold(
       appBar: AppBar(title: const Text("Теория")),
-      body: ListView.builder(
-        itemCount: sections.length,
-        itemBuilder: (context, index) {
-          final section = sections[index];
-
-          return ListTile(
-            title: Text(section.title),
-            trailing: const Icon(Icons.arrow_forward_ios),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => TheoryDetailPage(data: section),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                Text(
+                  "Прогресс: $passedCount / $total",
+                  style: const TextStyle(fontSize: 16),
                 ),
-              );
-            },
-          );
-        },
+                const SizedBox(height: 8),
+                LinearProgressIndicator(value: progress),
+              ],
+            ),
+          ),
+
+          Expanded(
+            child: ListView.builder(
+              itemCount: sections.length,
+              itemBuilder: (context, index) {
+                final section = sections[index];
+                final unlocked = _isUnlocked(index);
+                final score = results[section.id] ?? 0.0;
+
+                return Card(
+                  color: unlocked
+                      ? _getColor(score).withOpacity(0.2)
+                      : Colors.grey.withOpacity(0.1),
+                  child: ListTile(
+                    leading: Icon(
+                      unlocked ? Icons.book : Icons.lock,
+                    ),
+                    title: Text(section.title),
+                    subtitle: Text(
+                      unlocked
+                          ? "Прогресс: ${(score * 100).toStringAsFixed(0)}%"
+                          : "Заблокировано",
+                    ),
+                    trailing: unlocked
+                        ? const Icon(Icons.arrow_forward_ios)
+                        : null,
+                    onTap: unlocked
+                        ? () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              TheoryDetailPage(data: section),
+                        ),
+                      ).then((_) => _load());
+                    }
+                        : null,
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -580,121 +664,120 @@ class TheoryDetailPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text(data.title)),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            for (var section in data.sections)
-              _buildSection(section, context),
-
-            if (data.quiz != null) ...[
-              const SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => QuizPage(
-                        questions: data.quiz!,
-                        theoryId: data.id,
-                      ),
-                    ),
-                  );
-                },
-                child: const Text("Пройти тест"),
-              ),
-            ]
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSection(TheorySection section, BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          section.heading,
-          style: const TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 6),
-        _buildContent(section.content, context),
-        const SizedBox(height: 20),
-      ],
-    );
-  }
-
-  Widget _buildContent(String content, BuildContext context) {
-    final regex = RegExp(r'\[(.*?)\]\((.*?)\)');
-    final matches = regex.allMatches(content);
-
-    if (matches.isEmpty) {
-      return Text(content, style: const TextStyle(fontSize: 16));
-    }
-
-    List<InlineSpan> spans = [];
-    int lastIndex = 0;
-
-    for (final match in matches) {
-      if (match.start > lastIndex) {
-        spans.add(TextSpan(
-          text: content.substring(lastIndex, match.start),
-          style: const TextStyle(
-            color: Colors.black,
-            fontSize: 16,
-          ),
-        ));
-      }
-
-      final linkText = match.group(1)!;
-      final linkId = match.group(2)!;
-
-      spans.add(
-        WidgetSpan(
-          child: GestureDetector(
-            onTap: () {
-              final target = TheoryApiService.getById(linkId);
-              if (target != null) {
+      body: ListView(
+        children: [
+          for (int i = 0; i < data.sections.length; i++)
+            ListTile(
+              leading: const Icon(Icons.menu_book),
+              title: Text("Урок ${i + 1}: ${data.sections[i].heading}"),
+              trailing: const Icon(Icons.arrow_forward_ios),
+              onTap: () {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => TheoryDetailPage(data: target),
+                    builder: (_) => LessonPage(
+                      section: data.sections[i],
+                      allSections: data.sections,
+                      index: i,
+                    ),
                   ),
                 );
-              }
-            },
-            child: Text(
-              linkText,
-              style: const TextStyle(
-                color: Colors.blue,
-                decoration: TextDecoration.underline,
-                fontSize: 16,
+              },
+            ),
+
+          if (data.quiz != null)
+            ListTile(
+              leading: const Icon(Icons.quiz),
+              title: const Text("Тест"),
+              trailing: const Icon(Icons.arrow_forward_ios),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => QuizPage(
+                      questions: data.quiz!,
+                      theoryId: data.id,
+                    ),
+                  ),
+                );
+              },
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class LessonPage extends StatelessWidget {
+  final TheorySection section;
+  final List<TheorySection> allSections;
+  final int index;
+
+  const LessonPage({
+    super.key,
+    required this.section,
+    required this.allSections,
+    required this.index,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text(section.heading)),
+      body: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          children: [
+            Expanded(
+              child: SingleChildScrollView(
+                child: Text(
+                  section.content,
+                  style: const TextStyle(fontSize: 16),
+                ),
               ),
             ),
-          ),
+
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                if (index > 0)
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => LessonPage(
+                            section: allSections[index - 1],
+                            allSections: allSections,
+                            index: index - 1,
+                          ),
+                        ),
+                      );
+                    },
+                    child: const Text("Назад"),
+                  ),
+
+                if (index < allSections.length - 1)
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => LessonPage(
+                            section: allSections[index + 1],
+                            allSections: allSections,
+                            index: index + 1,
+                          ),
+                        ),
+                      );
+                    },
+                    child: const Text("Далее"),
+                  ),
+              ],
+            )
+          ],
         ),
-      );
-
-      lastIndex = match.end;
-    }
-
-    if (lastIndex < content.length) {
-      spans.add(TextSpan(
-        text: content.substring(lastIndex),
-        style: const TextStyle(
-          color: Colors.black,
-          fontSize: 16,
-        ),
-      ));
-    }
-
-    return RichText(
-      text: TextSpan(children: spans),
+      ),
     );
   }
 }
@@ -719,10 +802,15 @@ class _QuizPageState extends State<QuizPage> {
   int current = 0;
   int score = 0;
   int? selected;
+  List<QuizQuestion> wrongAnswers = [];
 
   void next() {
-    if (selected == widget.questions[current].correctIndex) {
+    final currentQuestion = widget.questions[current];
+
+    if (selected == currentQuestion.correctIndex) {
       score++;
+    } else {
+      wrongAnswers.add(currentQuestion);
     }
 
     if (current < widget.questions.length - 1) {
@@ -746,17 +834,38 @@ class _QuizPageState extends State<QuizPage> {
       context: context,
       builder: (_) => AlertDialog(
         title: const Text("Результат"),
-        content: Text(
-          "Правильных ответов: $score из ${widget.questions.length}",
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text("Правильных: $score из ${widget.questions.length}"),
+            if (wrongAnswers.isNotEmpty)
+              Text("Ошибок: ${wrongAnswers.length}"),
+          ],
         ),
         actions: [
+          if (wrongAnswers.isNotEmpty)
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => QuizPage(
+                      questions: wrongAnswers,
+                      theoryId: widget.theoryId,
+                    ),
+                  ),
+                );
+              },
+              child: const Text("Повторить ошибки"),
+            ),
           TextButton(
             onPressed: () {
-              Navigator.pop(context); // закрыть диалог
-              Navigator.pop(context); // назад
+              Navigator.pop(context);
+              Navigator.pop(context);
             },
-            child: const Text("ОК"),
-          )
+            child: const Text("Закрыть"),
+          ),
         ],
       ),
     );

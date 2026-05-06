@@ -31,6 +31,29 @@ class ProgressService {
 
     return results;
   }
+
+  static const double passThreshold = 0.7;
+
+  static Future<bool> isPassed(String theoryId) async {
+    final result = await getResult(theoryId);
+    return result >= passThreshold;
+  }
+
+  static Future<int> getPassedCount(List<TheoryData> sections) async {
+    int count = 0;
+
+    for (var s in sections) {
+      if (s.quiz != null) {
+        if (await isPassed(s.id)) {
+          count++;
+        }
+      } else {
+        count++; // если без теста — считаем пройденным
+      }
+    }
+
+    return count;
+  }
 }
 
 class QuizQuestion {
