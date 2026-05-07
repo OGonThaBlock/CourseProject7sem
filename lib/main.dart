@@ -693,47 +693,47 @@ class TheoryDetailPage extends StatelessWidget {
   }
 
   Widget _buildPracticeBlock(BuildContext context, TheoryData data) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          "Практика",
-          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-        ),
+    return FutureBuilder<List<QuizQuestion>>(
+      future: ErrorService.loadAllErrors(),
+      builder: (context, snapshot) {
+        final allErrors = snapshot.data ?? [];
 
-        const SizedBox(height: 10),
+        // фильтруем ошибки только для этого раздела
+        final sectionErrors = allErrors
+            .where((q) => q.theoryId == data.id)
+            .toList();
 
-        ElevatedButton(
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => QuizPage(
-                  questions: data.quiz!,
-                  theoryId: data.id,
-                  isErrorMode: true,
-                ),
-              ),
-            );
-          },
-          child: const Text("Тест"),
-        ),
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              "Практика",
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
 
-        FutureBuilder<List<QuizQuestion>>(
-          future: ErrorService.loadErrors(
-            data.id,
-            data.quiz ?? [],
-          ),
-          builder: (context, snapshot) {
-            final errors = snapshot.data ?? [];
+            const SizedBox(height: 10),
 
-            if (errors.isEmpty) {
-              return const SizedBox();
-            }
+            // обычный тест
+            ElevatedButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => QuizPage(
+                      questions: data.quiz!,
+                      theoryId: data.id,
+                    ),
+                  ),
+                );
+              },
+              child: const Text("Тест"),
+            ),
 
-            return Padding(
-              padding: const EdgeInsets.only(top: 10),
-              child: ElevatedButton(
+            const SizedBox(height: 10),
+
+            // кнопка ошибок (ТОЛЬКО ЕСЛИ ЕСТЬ)
+            if (sectionErrors.isNotEmpty)
+              ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.redAccent,
                 ),
@@ -741,20 +741,15 @@ class TheoryDetailPage extends StatelessWidget {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => QuizPage(
-                        questions: errors,
-                        theoryId: data.id,
-                        isErrorMode: true,
-                      ),
+                      builder: (_) => const AllErrorsQuizPage(),
                     ),
                   );
                 },
-                child: Text("Ошибки (${errors.length})"),
+                child: Text("Ошибки (${sectionErrors.length})"),
               ),
-            );
-          },
-        ),
-      ],
+          ],
+        );
+      },
     );
   }
 }
