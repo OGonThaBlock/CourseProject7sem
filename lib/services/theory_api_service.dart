@@ -31,40 +31,19 @@ class ProgressService {
 
     return results;
   }
-
-  static const double passThreshold = 0.7;
-
-  static Future<bool> isPassed(String theoryId) async {
-    final result = await getResult(theoryId);
-    return result >= passThreshold;
-  }
-
-  static Future<int> getPassedCount(List<TheoryData> sections) async {
-    int count = 0;
-
-    for (var s in sections) {
-      if (s.quiz != null) {
-        if (await isPassed(s.id)) {
-          count++;
-        }
-      } else {
-        count++; // если без теста — считаем пройденным
-      }
-    }
-
-    return count;
-  }
 }
 
 class QuizQuestion {
   final String question;
   final List<String> answers;
   final int correctIndex;
+  final String? theoryId;
 
   QuizQuestion({
     required this.question,
     required this.answers,
     required this.correctIndex,
+    this.theoryId,
   });
 }
 
@@ -92,6 +71,90 @@ class TheoryData {
   });
 }
 
+class ErrorService {
+  static String _key(String id) => "quiz_errors_$id";
+
+  static String _makeKey(QuizQuestion q) => q.question;
+
+  static Future<void> saveErrors(
+      String theoryId,
+      List<QuizQuestion> questions,
+      List<int> wrongIndexes,
+      ) async {
+    final prefs = await SharedPreferences.getInstance();
+
+    final existing = prefs.getStringList(_key(theoryId)) ?? [];
+
+    for (final i in wrongIndexes) {
+      final q = questions[i].question;
+
+      if (!existing.contains(q)) {
+        existing.add(q);
+      }
+    }
+
+    await prefs.setStringList(_key(theoryId), existing);
+  }
+
+  static Future<List<QuizQuestion>> loadErrors(
+      String theoryId,
+      List<QuizQuestion> allQuestions,
+      ) async {
+    final prefs = await SharedPreferences.getInstance();
+
+    final saved = prefs.getStringList(_key(theoryId)) ?? [];
+
+    return allQuestions.where((q) {
+      return saved.contains(q.question);
+    }).toList();
+  }
+
+  static Future<void> clearErrors(String theoryId) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_key(theoryId));
+  }
+
+  static Future<List<QuizQuestion>> loadAllErrors() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    final keys = prefs.getKeys().where((k) => k.startsWith("quiz_errors_"));
+
+    List<QuizQuestion> all = [];
+
+    for (final key in keys) {
+      final ids = prefs.getStringList(key) ?? [];
+
+      final theoryId = key.replaceFirst("quiz_errors_", "");
+      final theory = TheoryApiService.getById(theoryId);
+
+      if (theory == null || theory.quiz == null) continue;
+
+      for (final q in theory.quiz!) {
+        if (ids.contains(q.question)) {
+          all.add(q);
+        }
+      }
+    }
+
+    return all;
+  }
+
+  static Future<void> removeError(
+      String theoryId,
+      QuizQuestion question,
+      ) async {
+    final prefs = await SharedPreferences.getInstance();
+
+    final key = _key(theoryId);
+
+    final existing = prefs.getStringList(key) ?? [];
+
+    existing.remove(question.question);
+
+    await prefs.setStringList(key, existing);
+  }
+}
+
 class TheoryApiService {
   static List<TheoryData> getTheorySections() {
     return [
@@ -111,6 +174,7 @@ class TheoryApiService {
           ),
         ],
       ),
+
       TheoryData(
         id: "advanced",
         title: "Раздел 2: Продвинутое",
@@ -126,6 +190,7 @@ class TheoryApiService {
           ),
         ],
       ),
+
       TheoryData(
         id: "rhythm",
         title: "Раздел 3: Ритм",
@@ -137,32 +202,38 @@ class TheoryApiService {
         ],
         quiz: [
           QuizQuestion(
+            theoryId: "rhythm",
             question: "Что такое BPM?",
             answers: ["Скорость", "Громкость", "Высота", "Тон"],
             correctIndex: 0,
           ),
           QuizQuestion(
+            theoryId: "rhythm",
             question: "Сколько долей в 4/4?",
             answers: ["2", "3", "4", "8"],
             correctIndex: 2,
           ),
           QuizQuestion(
+            theoryId: "rhythm",
             question: "Что задаёт метроном?",
             answers: ["Ритм", "Ноты", "Гамму", "Аккорды"],
             correctIndex: 0,
           ),
           QuizQuestion(
+            theoryId: "rhythm",
             question: "Чем измеряется темп?",
             answers: ["Гц", "BPM", "ДБ", "Ватты"],
             correctIndex: 1,
           ),
           QuizQuestion(
+            theoryId: "rhythm",
             question: "Самый распространённый размер?",
             answers: ["3/4", "6/8", "4/4", "2/2"],
             correctIndex: 2,
           ),
         ],
       ),
+
       TheoryData(
         id: "hearing",
         title: "Раздел 4: Слух",
@@ -174,6 +245,7 @@ class TheoryApiService {
         ],
         quiz: [
           QuizQuestion(
+            theoryId: "hearing",
             question: "Что такое интервал?",
             answers: [
               "Разница высот",
@@ -184,6 +256,7 @@ class TheoryApiService {
             correctIndex: 0,
           ),
           QuizQuestion(
+            theoryId: "hearing",
             question: "Что развивает слух?",
             answers: [
               "Практика",
@@ -194,11 +267,13 @@ class TheoryApiService {
             correctIndex: 0,
           ),
           QuizQuestion(
+            theoryId: "hearing",
             question: "Минимальный интервал?",
             answers: ["Тон", "Полутон", "Октава", "Квинта"],
             correctIndex: 1,
           ),
           QuizQuestion(
+            theoryId: "hearing",
             question: "Октава — это?",
             answers: [
               "x2 частоты",
@@ -209,6 +284,7 @@ class TheoryApiService {
             correctIndex: 0,
           ),
           QuizQuestion(
+            theoryId: "hearing",
             question: "Что важно для слуха?",
             answers: [
               "Регулярность",
