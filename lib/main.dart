@@ -321,15 +321,48 @@ class _MenuPageState extends State<MenuPage> {
     AnalyticsService.incrementMenu();
   }
 
+  Widget _buildCard({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return Card(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      elevation: 3,
+      margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+      child: ListTile(
+        contentPadding: const EdgeInsets.all(16),
+        leading: CircleAvatar(
+          radius: 24,
+          backgroundColor: Colors.green.withOpacity(0.15),
+          child: Icon(icon, color: Colors.green),
+        ),
+        title: Text(
+          title,
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        subtitle: Text(subtitle),
+        trailing: const Icon(Icons.arrow_forward_ios),
+        onTap: onTap,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text("Меню")),
       body: ListView(
         children: [
-          ListTile(
-            leading: const Icon(Icons.music_note),
-            title: const Text("Аккорды"),
+          const SizedBox(height: 10),
+
+          _buildCard(
+            icon: Icons.music_note,
+            title: "Аккорды",
+            subtitle: "Просмотр аккордов",
             onTap: () {
               AnalyticsService.incrementChords();
               Navigator.push(
@@ -338,9 +371,11 @@ class _MenuPageState extends State<MenuPage> {
               );
             },
           ),
-          ListTile(
-            leading: const Icon(Icons.school),
-            title: const Text("Теория"),
+
+          _buildCard(
+            icon: Icons.school,
+            title: "Теория",
+            subtitle: "Изучение материала",
             onTap: () {
               AnalyticsService.incrementTheory();
               Navigator.push(
@@ -349,9 +384,11 @@ class _MenuPageState extends State<MenuPage> {
               );
             },
           ),
-          ListTile(
-            leading: const Icon(Icons.quiz),
-            title: const Text("Тесты"),
+
+          _buildCard(
+            icon: Icons.quiz,
+            title: "Тесты",
+            subtitle: "Проверка знаний",
             onTap: () {
               Navigator.push(
                 context,
@@ -359,9 +396,11 @@ class _MenuPageState extends State<MenuPage> {
               );
             },
           ),
-          ListTile(
-            leading: const Icon(Icons.bug_report),
-            title: const Text("Тест ошибок"),
+
+          _buildCard(
+            icon: Icons.bug_report,
+            title: "Ошибки",
+            subtitle: "Повтор сложных вопросов",
             onTap: () {
               Navigator.push(
                 context,
@@ -434,11 +473,33 @@ class _TestsPageState extends State<TestsPage> {
           final item = items[index];
 
           return Card(
-            color: _getColor(item.score).withOpacity(0.2),
+            margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
             child: ListTile(
-              title: Text(item.data.title),
-              subtitle: Text(
-                "Прогресс: ${(item.score * 100).toStringAsFixed(0)}%",
+              contentPadding: const EdgeInsets.all(16),
+              title: Text(
+                item.data.title,
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              subtitle: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 6),
+                  LinearProgressIndicator(
+                    value: item.score,
+                    minHeight: 6,
+                    backgroundColor: Colors.grey.shade300,
+                    valueColor: AlwaysStoppedAnimation(
+                      _getColor(item.score),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    "Прогресс: ${(item.score * 100).toStringAsFixed(0)}%",
+                  ),
+                ],
               ),
               trailing: const Icon(Icons.play_arrow),
               onTap: () {
@@ -551,8 +612,35 @@ class ChordViewPage extends StatelessWidget {
   }
 }
 
-class TheoryPage extends StatelessWidget {
+class TheoryPage extends StatefulWidget {
   const TheoryPage({super.key});
+
+  @override
+  State<TheoryPage> createState() => _TheoryPageState();
+}
+
+class _TheoryPageState extends State<TheoryPage> {
+  Map<String, double> progress = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final data = await ProgressService.getAllResults();
+    setState(() {
+      progress = data;
+    });
+  }
+
+  Color _getColor(double score) {
+    if (score == 0) return Colors.grey;
+    if (score < 0.5) return Colors.red;
+    if (score < 0.8) return Colors.orange;
+    return Colors.green;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -563,19 +651,48 @@ class TheoryPage extends StatelessWidget {
       body: ListView.builder(
         itemCount: sections.length,
         itemBuilder: (context, index) {
-          final section = sections[index];
+          final s = sections[index];
+          final score = progress[s.id] ?? 0.0;
 
-          return ListTile(
-            title: Text(section.title),
-            trailing: const Icon(Icons.arrow_forward_ios),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => TheoryDetailPage(data: section),
-                ),
-              );
-            },
+          return Card(
+            margin: const EdgeInsets.all(12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: ListTile(
+              contentPadding: const EdgeInsets.all(16),
+              title: Text(
+                s.title,
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              subtitle: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 6),
+                  LinearProgressIndicator(
+                    value: score,
+                    minHeight: 6,
+                    backgroundColor: Colors.grey.shade300,
+                    valueColor: AlwaysStoppedAnimation(
+                      _getColor(score),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    "Прогресс: ${(score * 100).toStringAsFixed(0)}%",
+                  ),
+                ],
+              ),
+              trailing: const Icon(Icons.arrow_forward_ios),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => TheoryDetailPage(data: s),
+                  ),
+                ).then((_) => _load());
+              },
+            ),
           );
         },
       ),
