@@ -202,6 +202,12 @@ class _MetronomePageState extends State<MetronomePage> {
     setState(() {});
   }
 
+  void _restartIfRunning() {
+    if (timer != null) {
+      startMetronome();
+    }
+  }
+
   @override
   void dispose() {
     timer?.cancel();
@@ -223,7 +229,10 @@ class _MetronomePageState extends State<MetronomePage> {
               value: bpm.toDouble(),
               min: 40,
               max: 240,
-              onChanged: (v) => setState(() => bpm = v.round()),
+              onChanged: (v) {
+                setState(() => bpm = v.round());
+                _restartIfRunning();
+              },
             ),
 
             const SizedBox(height: 30),
@@ -1035,7 +1044,7 @@ class AllErrorsQuizPage extends StatefulWidget {
 
 class _AllErrorsQuizPageState extends State<AllErrorsQuizPage> {
   List<QuizQuestion> questions = [];
-  bool loading = true;
+  bool isLoading = true;
 
   @override
   void initState() {
@@ -1044,32 +1053,35 @@ class _AllErrorsQuizPageState extends State<AllErrorsQuizPage> {
   }
 
   Future<void> _load() async {
-    final data = await ErrorService.loadAllErrors();
-
+    final errors = await ErrorService.loadAllErrors();
     setState(() {
-      questions = data;
-      loading = false;
+      questions = errors;
+      isLoading = false;
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    if (loading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
-    }
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Ошибки"),
+        centerTitle: true,
+      ),
 
-    if (questions.isEmpty) {
-      return const Scaffold(
-        body: Center(child: Text("Ошибок нет")),
-      );
-    }
-
-    return QuizPage(
-      questions: questions,
-      theoryId: "all_errors",
-      isErrorMode: true,
+      body: isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : questions.isEmpty
+          ? const Center(
+        child: Text(
+          "Ошибок нет 👍",
+          style: TextStyle(fontSize: 16),
+        ),
+      )
+          : QuizPage(
+        questions: questions,
+        theoryId: "all_errors",
+        isErrorMode: true,
+      ),
     );
   }
 }
