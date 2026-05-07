@@ -162,6 +162,10 @@ class _MetronomePageState extends State<MetronomePage> {
   int beatCount = 4;
   int currentBeat = 1;
 
+  //настукивание
+  List<int> _tapTimes = [];
+  static const int _maxTaps = 5;
+
   @override
   void initState() {
     super.initState();
@@ -172,6 +176,51 @@ class _MetronomePageState extends State<MetronomePage> {
   Future<void> _loadSounds() async {
     await playerAccent.setAsset('assets/tick_accent.wav');
     await playerTick.setAsset('assets/tick.wav');
+  }
+
+  void _handleTapTempo() {
+    final now = DateTime.now().millisecondsSinceEpoch;
+
+    //автостарт
+    if (_tapTimes.length >= 3 && timer == null) {
+      startMetronome();
+    }
+
+    if (_tapTimes.isNotEmpty &&
+        now - _tapTimes.last > 2000) {
+      _tapTimes.clear();
+    }
+
+    // добавляем тап
+    _tapTimes.add(now);
+
+    // храним только последние N тапов
+    if (_tapTimes.length > _maxTaps) {
+      _tapTimes.removeAt(0);
+    }
+
+    // нужно минимум 2 удара
+    if (_tapTimes.length < 2) return;
+
+    // считаем интервалы
+    List<int> intervals = [];
+    for (int i = 1; i < _tapTimes.length; i++) {
+      intervals.add(_tapTimes[i] - _tapTimes[i - 1]);
+    }
+
+    // средний интервал
+    final avg = intervals.reduce((a, b) => a + b) / intervals.length;
+
+    final newBpm = (60000 / avg).round();
+
+    // ограничение
+    if (newBpm < 40 || newBpm > 240) return;
+
+    setState(() {
+      bpm = newBpm;
+    });
+
+    _restartIfRunning();
   }
 
   void startMetronome() {
@@ -257,6 +306,19 @@ class _MetronomePageState extends State<MetronomePage> {
             ElevatedButton(
               onPressed: timer == null ? startMetronome : stopMetronome,
               child: Text(timer == null ? "Старт" : "Стоп"),
+            ),
+            const SizedBox(height: 20),
+
+            ElevatedButton(
+              onPressed: _handleTapTempo,
+              style: ElevatedButton.styleFrom(
+                side: const BorderSide(color: Colors.black, width: 2.0),
+                padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
+              ),
+              child: const Text(
+                "Подобрать темп",
+                style: TextStyle(fontSize: 18),
+              ),
             ),
           ],
         ),
