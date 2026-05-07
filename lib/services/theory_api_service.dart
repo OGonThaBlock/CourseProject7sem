@@ -31,6 +31,24 @@ class ProgressService {
 
     return results;
   }
+
+  static Future<void> updateProgressFromErrors(String theoryId) async {
+    final theory = TheoryApiService.getById(theoryId);
+    if (theory == null || theory.quiz == null) return;
+
+    final total = theory.quiz!.length;
+
+    final errors = await ErrorService.loadErrors(
+      theoryId,
+      theory.quiz!,
+    );
+
+    final correct = total - errors.length;
+    final percent = correct / total;
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble("$_prefix$theoryId", percent);
+  }
 }
 
 class QuizQuestion {

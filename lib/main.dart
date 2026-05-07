@@ -808,11 +808,23 @@ class _QuizPageState extends State<QuizPage> {
   }
 
   void _showResult() async {
-    await ProgressService.saveResult(
-      widget.theoryId,
-      score,
-      widget.questions.length,
-    );
+    if (!widget.isErrorMode) {
+      await ProgressService.saveResult(
+        widget.theoryId,
+        score,
+        widget.questions.length,
+      );
+    } else {
+      // обновляем прогресс по всем затронутым темам
+      final ids = widget.questions
+          .map((q) => q.theoryId)
+          .whereType<String>()
+          .toSet();
+
+      for (final id in ids) {
+        await ProgressService.updateProgressFromErrors(id);
+      }
+    }
 
     await ErrorService.saveErrors(
       widget.theoryId,
@@ -822,6 +834,10 @@ class _QuizPageState extends State<QuizPage> {
 
     if (score == widget.questions.length) {
       await ErrorService.clearErrors(widget.theoryId);
+    }
+
+    if (widget.isErrorMode) {
+      await ProgressService.updateProgressFromErrors(widget.theoryId);
     }
 
     showDialog(
