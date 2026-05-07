@@ -162,7 +162,9 @@ class _MetronomePageState extends State<MetronomePage> {
   int beatCount = 4;
   int currentBeat = 1;
 
-  //настукивание
+  bool _isPulse = false;
+
+  // Tap tempo
   List<int> _tapTimes = [];
   static const int _maxTaps = 5;
 
@@ -178,42 +180,31 @@ class _MetronomePageState extends State<MetronomePage> {
     await playerTick.setAsset('assets/tick.wav');
   }
 
+  // ================== TAP TEMPO ==================
   void _handleTapTempo() {
     final now = DateTime.now().millisecondsSinceEpoch;
 
-    //автостарт
-    if (_tapTimes.length >= 3 && timer == null) {
-      startMetronome();
-    }
-
-    if (_tapTimes.isNotEmpty &&
-        now - _tapTimes.last > 2000) {
+    // сброс если пауза
+    if (_tapTimes.isNotEmpty && now - _tapTimes.last > 2000) {
       _tapTimes.clear();
     }
 
-    // добавляем тап
     _tapTimes.add(now);
 
-    // храним только последние N тапов
     if (_tapTimes.length > _maxTaps) {
       _tapTimes.removeAt(0);
     }
 
-    // нужно минимум 2 удара
     if (_tapTimes.length < 2) return;
 
-    // считаем интервалы
     List<int> intervals = [];
     for (int i = 1; i < _tapTimes.length; i++) {
       intervals.add(_tapTimes[i] - _tapTimes[i - 1]);
     }
 
-    // средний интервал
     final avg = intervals.reduce((a, b) => a + b) / intervals.length;
-
     final newBpm = (60000 / avg).round();
 
-    // ограничение
     if (newBpm < 40 || newBpm > 240) return;
 
     setState(() {
@@ -221,26 +212,54 @@ class _MetronomePageState extends State<MetronomePage> {
     });
 
     _restartIfRunning();
+
+    // автостарт
+    if (_tapTimes.length >= 3 && timer == null) {
+      startMetronome();
+    }
   }
 
+  // ================== METRONOME ==================
   void startMetronome() {
     stopMetronome();
 
+    currentBeat = 1; // фикс: первый удар сразу правильный
+
     final interval = Duration(milliseconds: (60000 / bpm).round());
 
-    timer = Timer.periodic(interval, (timer) {
-      if (currentBeat == 1) {
-        playerAccent.seek(Duration.zero);
-        playerAccent.play();
-      } else {
-        playerTick.seek(Duration.zero);
-        playerTick.play();
-      }
+    timer = Timer.periodic(interval, (_) {
+      _playBeat();
+    });
 
-      setState(() {
-        currentBeat++;
-        if (currentBeat > beatCount) currentBeat = 1;
-      });
+    _playBeat(); // сразу первый удар
+  }
+
+  void _playBeat() {
+    if (currentBeat == 1) {
+      playerAccent.seek(Duration.zero);
+      playerAccent.play();
+    } else {
+      playerTick.seek(Duration.zero);
+      playerTick.play();
+    }
+
+    // ПУЛЬС
+    setState(() {
+      _isPulse = true;
+    });
+
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (mounted) {
+        setState(() {
+          _isPulse = false;
+        });
+      }
+    });
+
+    // переключаем долю
+    setState(() {
+      currentBeat++;
+      if (currentBeat > beatCount) currentBeat = 1;
     });
   }
 
@@ -248,13 +267,39 @@ class _MetronomePageState extends State<MetronomePage> {
     timer?.cancel();
     timer = null;
     currentBeat = 1;
-    setState(() {});
+
+    setState(() {
+      _isPulse = false;
+    });
   }
 
   void _restartIfRunning() {
     if (timer != null) {
       startMetronome();
     }
+  }
+
+  // ================== UI CIRCLE ==================
+  Widget _buildPulseCircle() {
+    final isSecondBeat = currentBeat == 2;
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 100),
+      width: _isPulse ? 160 : 100,
+      height: _isPulse ? 160 : 100,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: isSecondBeat ? Colors.red : Colors.green,
+        boxShadow: [
+          BoxShadow(
+            color: (isSecondBeat ? Colors.red : Colors.green)
+                .withOpacity(0.6),
+            blurRadius: _isPulse ? 30 : 5,
+            spreadRadius: _isPulse ? 5 : 1,
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -265,6 +310,7 @@ class _MetronomePageState extends State<MetronomePage> {
     super.dispose();
   }
 
+  // ================== BUILD ==================
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -286,40 +332,46 @@ class _MetronomePageState extends State<MetronomePage> {
 
             const SizedBox(height: 30),
 
-            Text("Размер: $beatCount/4", style: const TextStyle(fontSize: 24)),
+            Text("Размер: $beatCount/4",
+                style: const TextStyle(fontSize: 24)),
             Slider(
               value: beatCount.toDouble(),
               min: 2,
               max: 8,
               divisions: 6,
               label: beatCount.toString(),
-              onChanged: (v) => setState(() => beatCount = v.round()),
+              onChanged: (v) =>
+                  setState(() => beatCount = v.round()),
             ),
 
-            const SizedBox(height: 40),
 
-            Text("Текущая доля: $currentBeat",
-                style: const TextStyle(fontSize: 32)),
 
             const SizedBox(height: 60),
 
             ElevatedButton(
-              onPressed: timer == null ? startMetronome : stopMetronome,
+              onPressed:
+              timer == null ? startMetronome : stopMetronome,
               child: Text(timer == null ? "Старт" : "Стоп"),
             ),
+
             const SizedBox(height: 20),
 
             ElevatedButton(
               onPressed: _handleTapTempo,
               style: ElevatedButton.styleFrom(
                 side: const BorderSide(color: Colors.black, width: 2.0),
-                padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 40, vertical: 20),
               ),
               child: const Text(
                 "Подобрать темп",
                 style: TextStyle(fontSize: 18),
               ),
             ),
+
+            const SizedBox(height: 40),
+
+            Center(child: _buildPulseCircle()),
           ],
         ),
       ),
