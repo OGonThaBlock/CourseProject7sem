@@ -176,6 +176,7 @@ class ErrorService {
 class TheoryApiService {
   static List<TheoryData> getTheorySections() {
     return [
+      // ================== РАЗДЕЛ 1 ==================
       TheoryData(
         id: "basic",
         title: "Раздел 1: Основы",
@@ -191,8 +192,46 @@ class TheoryApiService {
             "Октава — удвоение частоты.\n\nПодробнее в [Продвинутом разделе](advanced)",
           ),
         ],
+        quiz: [
+          QuizQuestion(
+            theoryId: "basic",
+            question: "Сколько основных нот в западной системе?",
+            answers: ["5", "6", "7", "8"],
+            correctIndex: 2,
+          ),
+          QuizQuestion(
+            theoryId: "basic",
+            question: "Какая нота идёт после C?",
+            answers: ["A", "D", "E", "B"],
+            correctIndex: 1,
+          ),
+          QuizQuestion(
+            theoryId: "basic",
+            question: "Что такое октава?",
+            answers: [
+              "Удвоение частоты",
+              "Половина частоты",
+              "Громкость",
+              "Темп"
+            ],
+            correctIndex: 0,
+          ),
+          QuizQuestion(
+            theoryId: "basic",
+            question: "Сколько нот в одной октаве?",
+            answers: ["6", "7", "8", "12"],
+            correctIndex: 3,
+          ),
+          QuizQuestion(
+            theoryId: "basic",
+            question: "Какая нота последняя в списке C D E F G A ?",
+            answers: ["G", "A", "B", "C"],
+            correctIndex: 2,
+          ),
+        ],
       ),
 
+      // ================== РАЗДЕЛ 2 ==================
       TheoryData(
         id: "advanced",
         title: "Раздел 2: Продвинутое",
@@ -207,8 +246,61 @@ class TheoryApiService {
             content: "Сочетание 3 и более нот.",
           ),
         ],
+        quiz: [
+          QuizQuestion(
+            theoryId: "advanced",
+            question: "Что такое интервал?",
+            answers: [
+              "Расстояние между нотами",
+              "Громкость",
+              "Темп",
+              "Длина ноты"
+            ],
+            correctIndex: 0,
+          ),
+          QuizQuestion(
+            theoryId: "advanced",
+            question: "Сколько нот минимум в аккорде?",
+            answers: ["2", "3", "4", "5"],
+            correctIndex: 1,
+          ),
+          QuizQuestion(
+            theoryId: "advanced",
+            question: "Что такое аккорд?",
+            answers: [
+              "Одна нота",
+              "Сочетание нот",
+              "Темп",
+              "Ритм"
+            ],
+            correctIndex: 1,
+          ),
+          QuizQuestion(
+            theoryId: "advanced",
+            question: "Интервал измеряется в?",
+            answers: [
+              "Секундах",
+              "Герцах",
+              "Тонах/полутонах",
+              "Децибелах"
+            ],
+            correctIndex: 2,
+          ),
+          QuizQuestion(
+            theoryId: "advanced",
+            question: "Что больше: тон или полутон?",
+            answers: [
+              "Полутон",
+              "Тон",
+              "Одинаково",
+              "Зависит от ноты"
+            ],
+            correctIndex: 1,
+          ),
+        ],
       ),
 
+      // ================== РАЗДЕЛ 3 ==================
       TheoryData(
         id: "rhythm",
         title: "Раздел 3: Ритм",
@@ -252,6 +344,7 @@ class TheoryApiService {
         ],
       ),
 
+      // ================== РАЗДЕЛ 4 ==================
       TheoryData(
         id: "hearing",
         title: "Раздел 4: Слух",
@@ -325,3 +418,4 @@ class TheoryApiService {
     }
   }
 }
+

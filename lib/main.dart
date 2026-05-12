@@ -758,6 +758,17 @@ class _TheoryPageState extends State<TheoryPage> {
     });
   }
 
+  // ================== ЛОГИКА ОТКРЫТИЯ ==================
+  bool _isUnlocked(int index, List<TheoryData> sections) {
+    if (index == 0) return true;
+
+    final prev = sections[index - 1];
+    final prevScore = progress[prev.id] ?? 0.0;
+
+    return prevScore >= 0.7;
+  }
+
+  // ================== ЦВЕТ ПРОГРЕССА ==================
   Color _getColor(double score) {
     if (score == 0) return Colors.grey;
     if (score < 0.5) return Colors.red;
@@ -776,45 +787,79 @@ class _TheoryPageState extends State<TheoryPage> {
         itemBuilder: (context, index) {
           final s = sections[index];
           final score = progress[s.id] ?? 0.0;
+          final isUnlocked = _isUnlocked(index, sections);
 
           return Card(
             margin: const EdgeInsets.all(12),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
             ),
-            child: ListTile(
-              contentPadding: const EdgeInsets.all(16),
-              title: Text(
-                s.title,
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-              subtitle: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 6),
-                  LinearProgressIndicator(
-                    value: score,
-                    minHeight: 6,
-                    backgroundColor: Colors.grey.shade300,
-                    valueColor: AlwaysStoppedAnimation(
-                      _getColor(score),
+            child: Opacity(
+              opacity: isUnlocked ? 1.0 : 0.5,
+              child: ListTile(
+                contentPadding: const EdgeInsets.all(16),
+                title: Text(
+                  s.title,
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 6),
+
+                    // ПРОГРЕСС БАР
+                    LinearProgressIndicator(
+                      value: score,
+                      minHeight: 6,
+                      backgroundColor: Colors.grey.shade300,
+                      valueColor: AlwaysStoppedAnimation(
+                        _getColor(score),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    "Прогресс: ${(score * 100).toStringAsFixed(0)}%",
-                  ),
-                ],
+
+                    const SizedBox(height: 4),
+
+                    Text(
+                      "Прогресс: ${(score * 100).toStringAsFixed(0)}%",
+                    ),
+
+                    // 🔒 ТЕКСТ БЛОКИРОВКИ
+                    if (!isUnlocked)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 6),
+                        child: Text(
+                          "🔒 Пройдите предыдущий раздел (70%)",
+                          style: TextStyle(color: Colors.red),
+                        ),
+                      ),
+                  ],
+                ),
+
+                // ИКОНКА
+                trailing: Icon(
+                  isUnlocked ? Icons.arrow_forward_ios : Icons.lock,
+                ),
+
+                // НАЖАТИЕ
+                onTap: isUnlocked
+                    ? () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => TheoryDetailPage(data: s),
+                    ),
+                  ).then((_) => _load());
+                }
+                    : () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        "Сначала пройдите предыдущий раздел на 70%",
+                      ),
+                    ),
+                  );
+                },
               ),
-              trailing: const Icon(Icons.arrow_forward_ios),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => TheoryDetailPage(data: s),
-                  ),
-                ).then((_) => _load());
-              },
             ),
           );
         },
