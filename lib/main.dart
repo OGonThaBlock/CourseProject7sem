@@ -555,6 +555,13 @@ class _TestsPageState extends State<TestsPage> {
     _load();
   }
 
+  bool _isUnlocked(int index) {
+    if (index == 0) return true;
+
+    final prev = items[index - 1];
+    return prev.score >= 0.7;
+  }
+
   Future<void> _load() async {
     final sections = TheoryApiService.getTheorySections();
     final results = await ProgressService.getAllResults();
@@ -572,7 +579,7 @@ class _TestsPageState extends State<TestsPage> {
       }
     }
 
-    list.sort((a, b) => a.score.compareTo(b.score));
+    //list.sort((a, b) => a.score.compareTo(b.score));
 
     setState(() {
       items = list;
@@ -595,47 +602,78 @@ class _TestsPageState extends State<TestsPage> {
         itemBuilder: (context, index) {
           final item = items[index];
 
+          final isUnlocked = _isUnlocked(index);
+
           return Card(
             margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
             ),
-            child: ListTile(
-              contentPadding: const EdgeInsets.all(16),
-              title: Text(
-                item.data.title,
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-              subtitle: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 6),
-                  LinearProgressIndicator(
-                    value: item.score,
-                    minHeight: 6,
-                    backgroundColor: Colors.grey.shade300,
-                    valueColor: AlwaysStoppedAnimation(
-                      _getColor(item.score),
+            child: Opacity(
+              opacity: isUnlocked ? 1.0 : 0.5,
+              child: ListTile(
+                contentPadding: const EdgeInsets.all(16),
+                title: Text(
+                  item.data.title,
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 6),
+
+                    LinearProgressIndicator(
+                      value: item.score,
+                      minHeight: 6,
+                      backgroundColor: Colors.grey.shade300,
+                      valueColor: AlwaysStoppedAnimation(
+                        _getColor(item.score),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    "Прогресс: ${(item.score * 100).toStringAsFixed(0)}%",
-                  ),
-                ],
-              ),
-              trailing: const Icon(Icons.play_arrow),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => QuizPage(
-                      questions: item.data.quiz!,
-                      theoryId: item.data.id,
+
+                    const SizedBox(height: 4),
+
+                    Text(
+                      "Прогресс: ${(item.score * 100).toStringAsFixed(0)}%",
                     ),
-                  ),
-                ).then((_) => _load());
-              },
+
+                    if (!isUnlocked)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 6),
+                        child: Text(
+                          "Пройдите предыдущий тест (70%)",
+                          style: TextStyle(color: Colors.red),
+                        ),
+                      ),
+                  ],
+                ),
+
+                trailing: Icon(
+                  isUnlocked ? Icons.play_arrow : Icons.lock,
+                ),
+
+                onTap: isUnlocked
+                    ? () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => QuizPage(
+                        questions: item.data.quiz!,
+                        theoryId: item.data.id,
+                      ),
+                    ),
+                  ).then((_) => _load());
+                }
+                    : () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        "Сначала пройдите предыдущий тест на 70%",
+                      ),
+                    ),
+                  );
+                },
+              ),
             ),
           );
         },
@@ -916,6 +954,8 @@ class TheoryDetailPage extends StatelessWidget {
     final regex = RegExp(r'\[(.*?)\]\((.*?)\)');
     final matches = regex.allMatches(content);
 
+    final baseStyle = Theme.of(context).textTheme.bodyMedium;
+
     if (matches.isEmpty) {
       return Text(content, style: const TextStyle(fontSize: 16));
     }
@@ -928,7 +968,7 @@ class TheoryDetailPage extends StatelessWidget {
         spans.add(
           TextSpan(
             text: content.substring(lastIndex, match.start),
-            style: const TextStyle(fontSize: 16, color: Colors.black),
+            style: baseStyle,
           ),
         );
       }
@@ -969,12 +1009,17 @@ class TheoryDetailPage extends StatelessWidget {
       spans.add(
         TextSpan(
           text: content.substring(lastIndex),
-          style: const TextStyle(fontSize: 16, color: Colors.black),
+          style: baseStyle,
         ),
       );
     }
 
-    return RichText(text: TextSpan(children: spans));
+    return RichText(
+      text: TextSpan(
+        style: baseStyle,
+        children: spans,
+      ),
+    );
   }
 
   Widget _buildPracticeBlock(BuildContext context, TheoryData data) {
